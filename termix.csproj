@@ -10,7 +10,7 @@
     <ToolCommandName>termix</ToolCommandName>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <PackageId>Termix</PackageId>
-    <Version>0.0.8</Version>
+    <Version>0.0.9</Version>
     <Authors>amrohan</Authors>
     <Company>amrohan</Company>
     <Description>An elegant and powerful file navigator that makes command-line file management
