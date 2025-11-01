@@ -23,6 +23,9 @@ public class FileManager
     private bool _shouldQuit;
 
     private readonly ConcurrentQueue<Action> _uiActions = new();
+    
+    private int _lastWindowWidth;
+    private int _lastWindowHeight;
 
     public readonly List<(string Text, SortBy By, SortDirection Dir, bool Group)> SortOptions =
     [
@@ -58,6 +61,8 @@ public class FileManager
     public void Run()
     {
         AnsiConsole.Clear();
+        _lastWindowWidth = Console.WindowWidth;
+        _lastWindowHeight = Console.WindowHeight;
         RefreshDirectory(setInitialSelection: true);
 
         while (!_shouldQuit)
@@ -77,6 +82,16 @@ public class FileManager
 
             while (!Console.KeyAvailable && !_needsRedraw && !_shouldQuit && _uiActions.IsEmpty)
             {
+                if (Console.WindowWidth != _lastWindowWidth || Console.WindowHeight != _lastWindowHeight)
+                {
+                    _lastWindowWidth = Console.WindowWidth;
+                    _lastWindowHeight = Console.WindowHeight;
+
+                    AnsiConsole.Clear();
+                    AdjustViewPort(); 
+                    UpdatePreview(); 
+                    SetNeedsRedraw();
+                }
                 Thread.Sleep(50);
             }
 
