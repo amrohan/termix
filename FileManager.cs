@@ -192,29 +192,70 @@ public class FileManager
                 new CustomProgressBar { Value = State.ProgressValue, Width = 30 },
                 new Markup($"[bold]{State.ProgressValue:F0}%[/]")
             );
-            return new Panel(grid) { Border = BoxBorder.Rounded, BorderStyle = new Style(Color.Yellow) };
+            return new Panel(grid)
+                { Border = BoxBorder.Rounded, BorderStyle = new Style(Color.Yellow), Padding = new Padding(1, 1) };
         }
 
         if (State.StatusMessage != null)
         {
+            var borderColor = Color.Fuchsia; 
+            if (State.StatusMessage.Contains("[green]")) borderColor = Color.Green;
+            if (State.StatusMessage.Contains("[red]")) borderColor = Color.Red;
+            if (State.StatusMessage.Contains("[yellow]")) borderColor = Color.Yellow;
+
             return new Panel(new Markup(State.StatusMessage))
-            { Border = BoxBorder.Rounded, BorderStyle = new Style(Color.Fuchsia) };
+                { Border = BoxBorder.Rounded, BorderStyle = new Style(borderColor) };
         }
 
-        var content = new Markup(GetFooterText());
-        return new Panel(Align.Center(content)) { Border = BoxBorder.None };
-    }
+        switch (State.CurrentMode)
+        {
+            case InputMode.DeleteConfirm or InputMode.QuitConfirm or InputMode.CreateDirConfirm
+                or InputMode.BookmarkDeleteConfirm or InputMode.PasteConflict:
+                return new Panel(new Markup(State.PromptText))
+                {
+                    Border = BoxBorder.Rounded,
+                    BorderStyle = new Style(Color.Yellow)
+                };
 
+            case InputMode.Add or InputMode.Rename or InputMode.AddBookmark or InputMode.RenameBookmark:
+                var simplePromptContent =
+                    $"{State.PromptText.EscapeMarkup()}[yellow]{State.InputText.EscapeMarkup()}[/][grey]█[/]";
+                return new Panel(new Markup(simplePromptContent))
+                {
+                    Border = BoxBorder.Rounded,
+                    BorderStyle = new Style(Color.Cyan1)
+                };
+
+            case InputMode.Filter:
+                var searchIndicator = State.IsDeepSearchRunning ? "[grey](Searching...)[/]" : "";
+                var filterPromptContent =
+                    $"{State.PromptText.EscapeMarkup()}{searchIndicator} [yellow]{State.InputText.EscapeMarkup()}[/][grey]█[/] | [grey]Press[/] [cyan]Esc[/] [grey]to navigate results[/]";
+                return new Panel(new Markup(filterPromptContent))
+                {
+                    Border = BoxBorder.Rounded,
+                    BorderStyle = new Style(Color.Cyan1)
+                };
+
+            case InputMode.BookmarkFilter:
+                var bookmarkFilterPromptContent =
+                    $"{State.PromptText.EscapeMarkup()}[yellow]{State.InputText.EscapeMarkup()}[/][grey]█[/] | [grey]Press[/] [cyan]Esc[/] [grey]to return to bookmark list[/]";
+                return new Panel(new Markup(bookmarkFilterPromptContent))
+                {
+                    Border = BoxBorder.Rounded,
+                    BorderStyle = new Style(Color.Cyan1)
+                };
+        }
+
+        var helpText = new Markup(GetFooterText());
+        return new Panel(Align.Center(helpText)) { Border = BoxBorder.None };
+    }
 
     private string GetFooterText()
     {
         switch (State.CurrentMode)
         {
             case InputMode.HelpScreen:
-                return
-                    "[grey]Use[/] [cyan]↑↓/JK[/] [grey]to scroll | Press[/] [cyan]Esc[/]";
-            case InputMode.PasteConflict:
-                return State.PromptText;
+                return "[grey]Use[/] [cyan]↑↓/JK[/] [grey]to scroll | Press[/] [cyan]Esc[/] [grey]to close[/]";
             case InputMode.Visual:
                 return
                     $"[bold yellow]-- VISUAL --[/] [grey]Selected:[/][yellow] {State.VisuallySelectedItems.Count} [/] | [cyan]a[/] [grey]Select All[/] |  [cyan]i[/] [grey]Inverse Selection[/] | [cyan]Space[/] [grey]Toggle[/] | [cyan]y[/] [grey]Yank[/] | [cyan]x[/] [grey]Move[/] | [cyan]d[/] [grey]Del[/] | [cyan]Esc[/] [grey]Cancel[/]";
@@ -230,32 +271,20 @@ public class FileManager
             case InputMode.BookmarkVisual:
                 return
                     $"[bold yellow]-- VISUAL BOOKMARK --[/] [grey]Selected:[/][yellow] {State.VisuallySelectedBookmarks.Count} [/] | [cyan]Space[/] [grey]Toggle[/] | [cyan]d[/] [grey]Del[/] | [cyan]Esc[/] [grey]Cancel[/]";
-            case InputMode.BookmarkFilter:
-                return
-                    $"{State.PromptText.EscapeMarkup()}[yellow]{State.InputText.EscapeMarkup()}[/][grey]█[/] | [grey]Press[/] [cyan]Esc[/] [grey]to return to bookmark list[/]";
             case InputMode.Normal when !string.IsNullOrEmpty(State.InputText):
                 return
                     $"[grey]Results for '[yellow]{State.InputText.EscapeMarkup()}[/]'. Press [cyan]Esc[/] to clear, or [cyan]S[/] for new search.[/]";
-            case InputMode.Filter:
-                var searchIndicator = State.IsDeepSearchRunning ? "[grey](Searching...)[/]" : "";
-                return
-                    $"{State.PromptText.EscapeMarkup()}{searchIndicator} [yellow]{State.InputText.EscapeMarkup()}[/][grey]█[/] | [grey]Press[/] [cyan]Esc[/] [grey]to navigate results[/]";
-            case InputMode.Add or InputMode.Rename or InputMode.AddBookmark or InputMode.RenameBookmark:
-                return $"{State.PromptText.EscapeMarkup()}[yellow]{State.InputText.EscapeMarkup()}[/][grey]█[/]";
-            case InputMode.DeleteConfirm or InputMode.QuitConfirm or InputMode.CreateDirConfirm
-                or InputMode.BookmarkDeleteConfirm:
-                return State.PromptText;
             default:
                 if (State.Clipboard == null)
                     return
                         "[grey]Use[/] [cyan]↓↑/JK[/] [grey]to move[/] | [cyan]Enter[/] [grey]to open[/] | [cyan]q[/] [grey]to quit[/] | [cyan]b[/] [grey]bookmarks[/] | [cyan]?[/] [grey]for help[/]";
+
                 var mode = State.Clipboard.Mode == ClipboardMode.Copy ? "Yank" : "Move";
                 var items = State.Clipboard.Items.Count == 1
                     ? State.Clipboard.Items[0].Name.EscapeMarkup()
                     : $"{State.Clipboard.Items.Count} items";
 
-                return
-                    $"[grey]Clipboard ({mode}):[/] [yellow]{items}[/] | [cyan]p[/] Paste, [cyan]Esc[/] Clear";
+                return $"[grey]Clipboard ({mode}):[/] [yellow]{items}[/] | [cyan]p[/] Paste, [cyan]Esc[/] Clear";
         }
     }
 }
