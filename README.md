@@ -3,7 +3,7 @@
 # ⚡️ Termix
 
 **A modern, high-performance file navigator for your terminal**
-
+****
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE.txt)
 [![NuGet Version](https://img.shields.io/nuget/v/Termix)](https://www.nuget.org/packages/Termix/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Termix)](https://www.nuget.org/packages/Termix/)
@@ -70,13 +70,14 @@ dotnet tool install --global termix
 Termix uses Vim-style, case-sensitive keybindings. **Press `?` in the app for a full, scrollable list.**
 
 | Key(s)            | Action                                          |
-| :---------------- | :---------------------------------------------- |
+|:------------------|:------------------------------------------------|
 | `↑` / `k`         | Move selection up                               |
 | `↓` / `j`         | Move selection down                             |
 | `h` / `Backspace` | Navigate to parent directory                    |
 | `l` / `Enter`     | Open file or enter directory                    |
 | `gg` / `G`        | Jump to top / bottom of list                    |
 | `s`               | Start real-time recursive search                |
+| `O`               | Open in external editors/apps                   |
 | `v`               | Enter/Exit **Visual Mode** for multi-select     |
 | `m`               | **Mark (Add)** a new bookmark                   |
 | `b`               | Open the **Bookmark** menu                      |

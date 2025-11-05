@@ -7,7 +7,7 @@ Master all of Termix's keyboard shortcuts for maximum productivity. This compreh
 ### Essential Shortcuts
 
 | Key               | Action           | Key           | Action            |
-| :---------------- | :--------------- | :------------ | :---------------- |
+|:------------------|:-----------------|:--------------|:------------------|
 | `↑↓` / `kj`       | Move selection   | `Enter` / `l` | Open/Enter        |
 | `Backspace` / `h` | Go up            | `s`           | Search            |
 | `a`               | Add              | `r`           | Rename            |
@@ -17,13 +17,14 @@ Master all of Termix's keyboard shortcuts for maximum productivity. This compreh
 | `t`               | Sort             | `v`           | **Visual Mode**   |
 | `Y`               | Yank Path        | `?`           | **Help Screen**   |
 | `q`               | Quit             | `Esc`         | Cancel/Clear      |
+| `O`               | Open in menu     | `Esc`         | Cancel/Clear      |
 
 ## Navigation Shortcuts
 
 ### Basic Movement
 
 | Key      | Action          | Description               |
-| :------- | :-------------- | :------------------------ |
+|:---------|:----------------|:--------------------------|
 | `↑`      | Move up         | Select previous item      |
 | `↓`      | Move down       | Select next item          |
 | `k`      | Move up (Vim)   | Vim-style up movement     |
@@ -36,7 +37,7 @@ Master all of Termix's keyboard shortcuts for maximum productivity. This compreh
 ### Directory Navigation
 
 | Key         | Action           | Description                  |
-| :---------- | :--------------- | :--------------------------- |
+|:------------|:-----------------|:-----------------------------|
 | `Enter`     | Open/Enter       | Open file or enter directory |
 | `l`         | Open/Enter (Vim) | Alternative key for opening  |
 | `Backspace` | Go up            | Move to parent directory     |
@@ -45,7 +46,7 @@ Master all of Termix's keyboard shortcuts for maximum productivity. This compreh
 ### Preview Pane Control
 
 | Key       | Action       | Description                  |
-| :-------- | :----------- | :--------------------------- |
+|:----------|:-------------|:-----------------------------|
 | `Alt + ↑` | Scroll up    | Scroll preview content up    |
 | `Alt + ↓` | Scroll down  | Scroll preview content down  |
 | `Alt + ←` | Scroll left  | Scroll preview content left  |
