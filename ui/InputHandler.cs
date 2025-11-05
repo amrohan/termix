@@ -55,6 +55,9 @@ public class InputHandler(FileManager fileManager)
             case InputMode.HelpScreen:
                 HandleHelpScreenInput(keyInfo);
                 break;
+            case InputMode.OpenWithMenu:
+                HandleOpenWithMenuInput(keyInfo);
+                break;
             default:
                 HandleInputModeKeyPress(keyInfo);
                 break;
@@ -224,7 +227,12 @@ public class InputHandler(FileManager fileManager)
         {
             case ConsoleKey.Enter:
             case ConsoleKey.L:
-            case ConsoleKey.O: fileManager.NavigationHandler.OpenSelectedItem(); break;
+            case ConsoleKey.O when keyInfo.Modifiers != ConsoleModifiers.Shift: 
+                fileManager.NavigationHandler.OpenSelectedItem();
+                break;
+            case ConsoleKey.O when keyInfo.Modifiers == ConsoleModifiers.Shift: 
+                fileManager.ActionHandler.BeginOpenWithMenu();
+                break;
             case ConsoleKey.Backspace:
             case ConsoleKey.H: fileManager.NavigationHandler.NavigateUp(); break;
             case ConsoleKey.A: fileManager.ActionHandler.BeginAdd(); break;
@@ -237,6 +245,28 @@ public class InputHandler(FileManager fileManager)
         }
     }
 
+    
+    private void HandleOpenWithMenuInput(ConsoleKeyInfo keyInfo)
+    {
+        switch (keyInfo.Key)
+        {
+            case ConsoleKey.Escape:
+            case ConsoleKey.Q:
+                fileManager.ResetToNormalMode();
+                break;
+            case ConsoleKey.Enter:
+                fileManager.ActionHandler.ExecuteSelectedOpenWith();
+                break;
+            case ConsoleKey.DownArrow:
+            case ConsoleKey.J:
+                fileManager.NavigationHandler.MoveOpenWithMenuSelection(1);
+                break;
+            case ConsoleKey.UpArrow:
+            case ConsoleKey.K:
+                fileManager.NavigationHandler.MoveOpenWithMenuSelection(-1);
+                break;
+        }
+    }
     private void HandleBookmarkMenuInput(ConsoleKeyInfo keyInfo)
     {
         switch (keyInfo.Key)
@@ -294,6 +324,7 @@ public class InputHandler(FileManager fileManager)
                     _state.InputText += keyInfo.KeyChar;
                     fileManager.ActionHandler.FilterBookmarks(_state.InputText);
                 }
+
                 break;
         }
     }
@@ -352,6 +383,7 @@ public class InputHandler(FileManager fileManager)
                 break;
         }
     }
+
     private void HandleBookmarkDeleteConfirmation(ConsoleKey key)
     {
         switch (key)
@@ -444,6 +476,7 @@ public class InputHandler(FileManager fileManager)
                 {
                     fileManager.ResetToNormalMode();
                 }
+
                 break;
             case ConsoleKey.Backspace when _state.InputText.Length > 0:
                 _state.InputText = _state.InputText[..^1];
@@ -515,6 +548,7 @@ public class InputHandler(FileManager fileManager)
         fileManager.NavigationHandler.MoveSelectionToEdge(key == ConsoleKey.Home);
         return true;
     }
+
     private void HandleHelpScreenInput(ConsoleKeyInfo keyInfo)
     {
         switch (keyInfo.Key)

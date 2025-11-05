@@ -17,6 +17,9 @@ public class FileManagerRenderer(IconProvider iconProvider)
             case InputMode.SortMenu:
                 body = CreateSortMenuBody(fm.SortOptions, fm.State.SortMenuSelectedIndex);
                 break;
+            case InputMode.OpenWithMenu: // Add this case
+                body = CreateOpenWithMenuBody(fm.OpenWithOptions, fm.State.OpenWithMenuSelectedIndex);
+                break;
             case InputMode.HelpScreen:
                 body = CreateHelpScreen(fm.State);
                 break;
@@ -228,6 +231,26 @@ public class FileManagerRenderer(IconProvider iconProvider)
             {
                 table.AddRow(keys, action, mode);
             }
+        }
+
+        return new Align(table, HorizontalAlignment.Center, VerticalAlignment.Middle);
+    }
+    private static IRenderable CreateOpenWithMenuBody(
+        List<(string Text, string Command)> options,
+        int selectedIndex)
+    {
+        var table = new Table()
+            .Title("[bold]Open With...[/]")
+            .Border(TableBorder.Rounded)
+            .BorderStyle("yellow");
+
+        table.AddColumn("Program");
+
+        for (var i = 0; i < options.Count; i++)
+        {
+            var option = options[i];
+            var style = i == selectedIndex ? new Style(background: Color.DodgerBlue1) : Style.Plain;
+            table.AddRow(new Markup(option.Text.EscapeMarkup(), style));
         }
 
         return new Align(table, HorizontalAlignment.Center, VerticalAlignment.Middle);

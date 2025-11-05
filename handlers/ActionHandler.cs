@@ -398,6 +398,34 @@ namespace termix.Handlers
             _state.SortMenuSelectedIndex = 0;
             fileManager.SetNeedsRedraw();
         }
+        
+        public void BeginOpenWithMenu()
+        {
+            _state.CurrentMode = InputMode.OpenWithMenu;
+            _state.OpenWithMenuSelectedIndex = 0;
+            fileManager.SetNeedsRedraw();
+        }
+
+        public void ExecuteSelectedOpenWith()
+        {
+            if (_state.CurrentMode != InputMode.OpenWithMenu) return;
+
+            var selectedOption = fileManager.OpenWithOptions[_state.OpenWithMenuSelectedIndex];
+            
+            string pathToOpen = _state.CurrentPath;
+            var selectedItem = _state.SelectedIndex >= 0 && _state.SelectedIndex < _state.CurrentItems.Count 
+                ? _state.CurrentItems[_state.SelectedIndex] : null;
+
+            if (selectedItem is { IsDirectory: true })
+            {
+                pathToOpen = selectedItem.Path;
+            }
+
+            var response = ExternalProgramService.Open(selectedOption.Command, pathToOpen);
+            _state.StatusMessage = response.Message;
+
+            fileManager.ResetToNormalMode();
+        }
 
         public void ApplySort()
         {

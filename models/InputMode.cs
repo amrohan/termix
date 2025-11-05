@@ -19,5 +19,6 @@ public enum InputMode
     BookmarkVisual,
     AddBookmark,
     RenameBookmark,
-    BookmarkDeleteConfirm
+    BookmarkDeleteConfirm,
+    OpenWithMenu
 }

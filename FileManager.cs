@@ -19,6 +19,7 @@ public class FileManager
     private readonly FilePreviewService _filePreviewService;
     private readonly FileManagerRenderer _renderer;
 
+    public readonly List<(string Text, string Command)> OpenWithOptions = OpenWithOptionsProvider.GetOptions();
     private bool _needsRedraw = true;
     private bool _shouldQuit;
 

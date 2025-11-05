@@ -96,6 +96,13 @@ public class NavigationHandler(FileManager fileManager)
         _state.SortMenuSelectedIndex = Math.Clamp(newIndex, 0, fileManager.SortOptions.Count - 1);
         fileManager.SetNeedsRedraw();
     }
+    public void MoveOpenWithMenuSelection(int direction)
+    {
+        if (_state.CurrentMode != InputMode.OpenWithMenu) return;
+        var newIndex = _state.OpenWithMenuSelectedIndex + direction;
+        _state.OpenWithMenuSelectedIndex = Math.Clamp(newIndex, 0, fileManager.OpenWithOptions.Count - 1);
+        fileManager.SetNeedsRedraw();
+    }
 
     public void ScrollPreview(int vertical, int horizontal)
     {
