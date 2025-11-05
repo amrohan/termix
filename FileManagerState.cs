@@ -36,7 +36,9 @@ public class FileManagerState
     public SortDirection SortDirection { get; set; } = SortDirection.Ascending;
     public bool GroupDirectories { get; set; } = true;
     public int SortMenuSelectedIndex { get; set; }
-    public HashSet<string> VisuallySelectedItems { get; } = new();
+    
+    public int OpenWithMenuSelectedIndex { get; set; } 
+    public HashSet<string> VisuallySelectedItems { get; } = [];
     public List<FileSystemItem> PendingDeleteItems { get; set; } = [];
     public PasteConflictState? CurrentConflict { get; set; }
     public ConflictResolution ActiveConflictResolution { get; set; } = ConflictResolution.None;
