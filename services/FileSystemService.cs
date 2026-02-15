@@ -1,14 +1,13 @@
 using System.Diagnostics;
 using Spectre.Console;
 using termix.models;
-using static termix.FileManager;
 
 namespace termix.Services;
 
 public abstract class FileSystemService
 {
     public static List<FileSystemItem> GetDirectoryContents(string path, SortBy sortBy, SortDirection sortDirection,
-        bool groupDirectories)
+        bool groupDirectories, bool showHidden)
     {
         var items = new List<FileSystemItem>();
         var directoryInfo = new DirectoryInfo(path);
@@ -19,17 +18,33 @@ public abstract class FileSystemService
                 directoryInfo.Parent.LastWriteTime, true
             ));
 
-        var directories = directoryInfo.GetDirectories()
-            .Select(d => new FileSystemItem(d.FullName, d.Name, true, 0, d.LastWriteTime));
+        var filteredEntries = directoryInfo.GetFileSystemInfos()
+            .Where(e =>
+            {
+                if (showHidden) return true;
+                if (e.Name.StartsWith('.') && e.Name != "..") return false;
+                try
+                {
+                    return (e.Attributes & FileAttributes.Hidden) == 0;
+                }
+                catch
+                {
+                    return true;
+                }
+            })
+            .ToList();
 
-        var files = directoryInfo.GetFiles()
-            .Select(f => new FileSystemItem(f.FullName, f.Name, false, f.Length, f.LastWriteTime));
-
-        var allItems = directories.Concat(files);
+        var allItems = filteredEntries.Select(e => new FileSystemItem(
+            e.FullName,
+            e.Name,
+            e is DirectoryInfo,
+            e is FileInfo f ? f.Length : 0,
+            e.LastWriteTime
+        ));
 
         var primarySort = groupDirectories
             ? allItems.OrderByDescending(item => item.IsDirectory)
-            : allItems.OrderBy(item => 0);
+            : allItems.OrderBy(_ => 0);
 
         var sortedItems = sortBy switch
         {
@@ -45,7 +60,6 @@ public abstract class FileSystemService
         };
 
         items.AddRange(sortedItems);
-
         return items;
     }
 

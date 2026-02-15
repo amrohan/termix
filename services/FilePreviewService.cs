@@ -16,7 +16,7 @@ public class FilePreviewService(IconProvider iconProvider)
     private readonly CustomSyntaxHighlighter _highlighter = new();
     private const string TabReplacement = "    ";
 
-    public IRenderable GetPreview(string? filePath, int verticalOffset, int horizontalOffset)
+    public IRenderable GetPreview(string? filePath, int verticalOffset, int horizontalOffset, bool showHidden)
     {
         string header;
 
@@ -28,7 +28,7 @@ public class FilePreviewService(IconProvider iconProvider)
         {
             var directoryInfo = new DirectoryInfo(filePath);
             header = $"[white]Preview (Directory):[/] [aqua]{directoryInfo.Name.EscapeMarkup()}[/]";
-            return RenderDirectoryPreview(filePath, header);
+            return RenderDirectoryPreview(filePath, header, showHidden);
         }
 
         var fileInfo = new FileInfo(filePath);
@@ -146,12 +146,12 @@ public class FilePreviewService(IconProvider iconProvider)
             .Border(BoxBorder.Rounded);
     }
 
-    private IRenderable RenderDirectoryPreview(string directoryPath, string header)
+    private IRenderable RenderDirectoryPreview(string directoryPath, string header, bool showHidden)
     {
         try
         {
             var items = FileSystemService
-                .GetDirectoryContents(directoryPath, SortBy.Name, SortDirection.Ascending, true)
+                .GetDirectoryContents(directoryPath, SortBy.Name, SortDirection.Ascending, true, showHidden)
                 .Where(item => !item.IsParentDirectory)
                 .Take(Console.WindowHeight - 14)
                 .ToList();
@@ -186,7 +186,7 @@ public class FilePreviewService(IconProvider iconProvider)
         {
             using var archive = ArchiveFactory.Open(filePath);
             var allEntries = archive.Entries
-                .Where(e => !e.IsDirectory) 
+                .Where(e => !e.IsDirectory)
                 .OrderBy(e => e.Key)
                 .ToList();
 

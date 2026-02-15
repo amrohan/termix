@@ -36,8 +36,8 @@ public class FileManagerState
     public SortDirection SortDirection { get; set; } = SortDirection.Ascending;
     public bool GroupDirectories { get; set; } = true;
     public int SortMenuSelectedIndex { get; set; }
-    
-    public int OpenWithMenuSelectedIndex { get; set; } 
+
+    public int OpenWithMenuSelectedIndex { get; set; }
     public HashSet<string> VisuallySelectedItems { get; } = [];
     public List<FileSystemItem> PendingDeleteItems { get; set; } = [];
     public PasteConflictState? CurrentConflict { get; set; }
@@ -47,6 +47,7 @@ public class FileManagerState
     public int BookmarkMenuSelectedIndex { get; set; }
     public HashSet<string> VisuallySelectedBookmarks { get; } = new();
     public List<Bookmark> PendingDeleteBookmarks { get; set; } = [];
+    public bool ShowHiddenFiles { get; set; }
 }
 
 public enum ConflictResolution

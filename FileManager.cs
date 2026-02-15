@@ -18,13 +18,14 @@ public class FileManager
     private readonly DoubleBufferedRenderer _doubleBuffer = new();
     private readonly FilePreviewService _filePreviewService;
     private readonly FileManagerRenderer _renderer;
+    private readonly ConfigService _configService = new();
 
     public readonly List<(string Text, string Command)> OpenWithOptions = OpenWithOptionsProvider.GetOptions();
     private bool _needsRedraw = true;
     private bool _shouldQuit;
 
     private readonly ConcurrentQueue<Action> _uiActions = new();
-    
+
     private int _lastWindowWidth;
     private int _lastWindowHeight;
 
@@ -44,6 +45,8 @@ public class FileManager
 
     public FileManager(bool useIcons)
     {
+        var config = _configService.Load();
+        State.ShowHiddenFiles = config.ShowHiddenFiles;
         var iconProvider = new IconProvider(useIcons);
         _renderer = new FileManagerRenderer(iconProvider);
         _filePreviewService = new FilePreviewService(iconProvider);
@@ -89,10 +92,11 @@ public class FileManager
                     _lastWindowHeight = Console.WindowHeight;
 
                     AnsiConsole.Clear();
-                    AdjustViewPort(); 
-                    UpdatePreview(); 
+                    AdjustViewPort();
+                    UpdatePreview();
                     SetNeedsRedraw();
                 }
+
                 Thread.Sleep(50);
             }
 
@@ -172,9 +176,9 @@ public class FileManager
             ? State.CurrentItems[State.SelectedIndex]
             : null;
         State.CurrentPreview = selectedItem == null
-            ? _filePreviewService.GetPreview(null, 0, 0)
+            ? _filePreviewService.GetPreview(null, 0, 0, State.ShowHiddenFiles)
             : _filePreviewService.GetPreview(selectedItem.Path, State.PreviewVerticalOffset,
-                State.PreviewHorizontalOffset);
+                State.PreviewHorizontalOffset, State.ShowHiddenFiles);
         SetNeedsRedraw();
     }
 
@@ -182,8 +186,13 @@ public class FileManager
     {
         try
         {
-            State.UnfilteredItems = FileSystemService.GetDirectoryContents(State.CurrentPath, State.SortBy,
-                State.SortDirection, State.GroupDirectories);
+            State.UnfilteredItems = FileSystemService.GetDirectoryContents(
+                State.CurrentPath,
+                State.SortBy,
+                State.SortDirection,
+                State.GroupDirectories,
+                State.ShowHiddenFiles);
+
             if (State.CurrentMode != InputMode.Filter) State.CurrentItems = [.. State.UnfilteredItems];
         }
         catch (Exception ex)
@@ -195,6 +204,19 @@ public class FileManager
         }
 
         SetNeedsRedraw();
+    }
+
+    public void ToggleHiddenFiles()
+    {
+        State.ShowHiddenFiles = !State.ShowHiddenFiles;
+
+        var config = _configService.Load();
+        config.ShowHiddenFiles = State.ShowHiddenFiles;
+        _configService.Save(config);
+
+        RefreshDirectory(preserveSelection: true);
+        State.StatusMessage =
+            State.ShowHiddenFiles ? "[yellow]Showing hidden files[/]" : "[grey]Hiding hidden files[/]";
     }
 
     private IRenderable CreateFooterRenderable()
@@ -214,7 +236,7 @@ public class FileManager
 
         if (State.StatusMessage != null)
         {
-            var borderColor = Color.Fuchsia; 
+            var borderColor = Color.Fuchsia;
             if (State.StatusMessage.Contains("[green]")) borderColor = Color.Green;
             if (State.StatusMessage.Contains("[red]")) borderColor = Color.Red;
             if (State.StatusMessage.Contains("[yellow]")) borderColor = Color.Yellow;

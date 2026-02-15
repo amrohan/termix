@@ -227,14 +227,22 @@ public class InputHandler(FileManager fileManager)
         {
             case ConsoleKey.Enter:
             case ConsoleKey.L:
-            case ConsoleKey.O when keyInfo.Modifiers != ConsoleModifiers.Shift: 
+            case ConsoleKey.O when keyInfo.Modifiers != ConsoleModifiers.Shift:
                 fileManager.NavigationHandler.OpenSelectedItem();
                 break;
-            case ConsoleKey.O when keyInfo.Modifiers == ConsoleModifiers.Shift: 
+            case ConsoleKey.O when keyInfo.Modifiers == ConsoleModifiers.Shift:
                 fileManager.ActionHandler.BeginOpenWithMenu();
                 break;
+            case ConsoleKey.OemPeriod:
+                fileManager.ToggleHiddenFiles();
+                break;
             case ConsoleKey.Backspace:
-            case ConsoleKey.H: fileManager.NavigationHandler.NavigateUp(); break;
+            case ConsoleKey.H:
+                if (keyInfo.Modifiers == ConsoleModifiers.None)
+                    fileManager.NavigationHandler.NavigateUp();
+                else if (keyInfo.Modifiers == ConsoleModifiers.Control)
+                    fileManager.ToggleHiddenFiles();
+                break;
             case ConsoleKey.A: fileManager.ActionHandler.BeginAdd(); break;
             case ConsoleKey.R: fileManager.ActionHandler.BeginRename(); break;
             case ConsoleKey.D: fileManager.ActionHandler.BeginDelete(); break;
@@ -245,7 +253,7 @@ public class InputHandler(FileManager fileManager)
         }
     }
 
-    
+
     private void HandleOpenWithMenuInput(ConsoleKeyInfo keyInfo)
     {
         switch (keyInfo.Key)
@@ -267,6 +275,7 @@ public class InputHandler(FileManager fileManager)
                 break;
         }
     }
+
     private void HandleBookmarkMenuInput(ConsoleKeyInfo keyInfo)
     {
         switch (keyInfo.Key)
