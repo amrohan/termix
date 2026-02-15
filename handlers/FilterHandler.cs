@@ -1,3 +1,4 @@
+using termix.Helpers;
 using termix.models;
 using termix.Services;
 
@@ -80,10 +81,18 @@ public class FilterHandler(FileManager fileManager)
     private void ApplyFilter()
     {
         var sourceList = _state.RecursiveSearchCache ?? _state.UnfilteredItems;
-        _state.CurrentItems = string.IsNullOrEmpty(_state.InputText)
-            ? [.._state.UnfilteredItems]
-            : sourceList.Where(item => item.Name.Contains(_state.InputText, StringComparison.OrdinalIgnoreCase))
+
+        if (string.IsNullOrEmpty(_state.InputText))
+        {
+            _state.CurrentItems = [.. _state.UnfilteredItems];
+        }
+        else
+        {
+            _state.CurrentItems = sourceList
+                .Where(item => FuzzyMatcher.IsMatch(item.Name, _state.InputText))
                 .ToList();
+        }
+
         RefreshViewAfterFilter();
     }
 

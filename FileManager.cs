@@ -193,6 +193,8 @@ public class FileManager
                 State.GroupDirectories,
                 State.ShowHiddenFiles);
 
+            State.GitStatuses = GitService.GetRepoStatuses(State.CurrentPath);
+
             if (State.CurrentMode != InputMode.Filter) State.CurrentItems = [.. State.UnfilteredItems];
         }
         catch (Exception ex)
@@ -297,6 +299,11 @@ public class FileManager
             case InputMode.Visual:
                 return
                     $"[bold yellow]-- VISUAL --[/] [grey]Selected:[/][yellow] {State.VisuallySelectedItems.Count} [/] | [cyan]a[/] [grey]Select All[/] |  [cyan]i[/] [grey]Inverse Selection[/] | [cyan]Space[/] [grey]Toggle[/] | [cyan]y[/] [grey]Yank[/] | [cyan]x[/] [grey]Move[/] | [cyan]d[/] [grey]Del[/] | [cyan]Esc[/] [grey]Cancel[/]";
+            case InputMode.Filter:
+                var searchIndicator = State.IsDeepSearchRunning ? "[grey](Searching...)[/]" : "[grey](Fuzzy)[/]";
+                var filterPromptContent =
+                    $"{State.PromptText.EscapeMarkup()}{searchIndicator} [yellow]{State.InputText.EscapeMarkup()}[/][grey]█[/]";
+                return filterPromptContent;
             case InputMode.SortMenu:
                 return
                     "[grey]Use[/] [cyan]↓↑/JK[/] [grey]to select[/] | [cyan]Enter[/] [grey]Apply[/] | [cyan]Esc[/] [grey]Cancel[/]";
