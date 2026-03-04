@@ -7,54 +7,69 @@ on:
 
 jobs:
   build-and-release:
-    name: Build and Release for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    permissions:
+      contents: write
+
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
             rid: win-x64
-            asset_name_suffix: win-x64.zip
+            asset: termix-win-x64.zip
+
           - os: ubuntu-latest
             rid: linux-x64
-            asset_name_suffix: linux-x64.tar.gz
+            asset: termix-linux-x64.tar.gz
+
           - os: macos-latest
             rid: osx-x64
-            asset_name_suffix: osx-x64.zip
+            asset: termix-osx-x64.zip
+
           - os: macos-latest
             rid: osx-arm64
-            asset_name_suffix: osx-arm64.zip
-
-    runs-on: ${{ matrix.os }}
+            asset: termix-osx-arm64.zip
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup .NET
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
 
-      - name: Publish Application
-        run: dotnet publish --configuration Release -r ${{ matrix.rid }} --self-contained true /p:PublishSingleFile=true -o ./publish
+      - name: Restore
+        run: dotnet restore
 
-      - name: Package for Windows (zip)
+      - name: Publish
+        run: |
+          dotnet publish -c Release \
+          -r ${{ matrix.rid }} \
+          --self-contained true \
+          /p:PublishSingleFile=true \
+          /p:IncludeNativeLibrariesForSelfExtract=true \
+          -o publish
+
+      - name: Package Windows
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path ./publish/* -DestinationPath termix-${{ matrix.asset_name_suffix }}
+        run: Compress-Archive -Path publish/* -DestinationPath ${{ matrix.asset }}
 
-      - name: Package for Linux (tar.gz)
+      - name: Package Linux
         if: runner.os == 'Linux'
-        run: tar -czvf termix-${{ matrix.asset_name_suffix }} -C ./publish .
+        run: tar -czvf ${{ matrix.asset }} -C publish .
 
-      - name: Package for macOS (zip)
+      - name: Package macOS
         if: runner.os == 'macOS'
         run: |
           cd publish
-          zip -r ../termix-${{ matrix.asset_name_suffix }} .
+          zip -r ../${{ matrix.asset }} .
 
-      - name: Upload to Release
+      - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: termix-${{ matrix.asset_name_suffix }}
+          files: ${{ matrix.asset }}
+          fail_on_unmatched_files: false
         env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
