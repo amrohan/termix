@@ -452,17 +452,25 @@ public class InputHandler(FileManager fileManager)
         switch (keyInfo.Key)
         {
             case ConsoleKey.Enter:
-            case ConsoleKey.UpArrow:
-            case ConsoleKey.DownArrow:
                 fileManager.FilterHandler.AcceptFilter();
-                HandleNormalKeyPress(keyInfo);
                 break;
+
+            case ConsoleKey.UpArrow:
+                fileManager.NavigationHandler.MoveSelection(-1);
+                break;
+
+            case ConsoleKey.DownArrow:
+                fileManager.NavigationHandler.MoveSelection(1);
+                break;
+
             case ConsoleKey.Escape:
                 fileManager.FilterHandler.AcceptFilter();
                 break;
+
             case ConsoleKey.Backspace when _state.InputText.Length > 0:
                 fileManager.FilterHandler.UpdateFilter(_state.InputText[..^1]);
                 break;
+
             default:
                 if (!char.IsControl(keyInfo.KeyChar))
                     fileManager.FilterHandler.UpdateFilter(_state.InputText + keyInfo.KeyChar);

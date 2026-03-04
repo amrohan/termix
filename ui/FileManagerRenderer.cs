@@ -23,7 +23,8 @@ public class FileManagerRenderer(IconProvider iconProvider)
             case InputMode.HelpScreen:
                 body = CreateHelpScreen(fm.State);
                 break;
-            case InputMode.BookmarkMenu or InputMode.BookmarkFilter or InputMode.BookmarkVisual or InputMode.AddBookmark or InputMode.RenameBookmark or InputMode.BookmarkDeleteConfirm:
+            case InputMode.BookmarkMenu or InputMode.BookmarkFilter or InputMode.BookmarkVisual or InputMode.AddBookmark
+                or InputMode.RenameBookmark or InputMode.BookmarkDeleteConfirm:
                 body = CreateBookmarkMenuBody(fm.State);
                 break;
             default:
@@ -148,7 +149,7 @@ public class FileManagerRenderer(IconProvider iconProvider)
                 : isVisuallySelected ? new Style(background: Color.Grey30)
                 : Style.Plain;
 
-            var name = CreateNameMarkup(item, isVisuallySelected);
+            var name = CreateNameMarkup(item, isVisuallySelected, state.GitStatuses);
             var scrollChar = GetScrollbarChar(i, state.CurrentItems.Count, pageSize, state.ViewOffset,
                 visibleItems.Count);
 
@@ -178,13 +179,29 @@ public class FileManagerRenderer(IconProvider iconProvider)
         return "║";
     }
 
-    private string CreateNameMarkup(FileSystemItem item, bool isVisuallySelected)
+    private string CreateNameMarkup(FileSystemItem item, bool isVisuallySelected,
+        Dictionary<string, string> gitStatuses)
     {
         var icon = iconProvider.GetIcon(item);
         var name = item.Name.EscapeMarkup();
         var nameStyle = item.IsDirectory ? "bold" : "";
         var selectionMarker = isVisuallySelected ? "[yellow]*[/]" : " ";
-        return $"{selectionMarker} {icon}  [{nameStyle}]{name}[/]";
+
+        var gitMarkup = "";
+        if (gitStatuses.TryGetValue(item.Name, out var status))
+        {
+            gitMarkup = status.Trim() switch
+            {
+                "??" => " [grey]?[/]", // Untracked
+                "M" or " M" => " [yellow]M[/]", // Modified
+                "A" or "A " => " [green]A[/]", // Added
+                "D" or "D " => " [red]D[/]", // Deleted
+                "R" or "R " => " [blue]R[/]", // Renamed
+                _ => ""
+            };
+        }
+
+        return $"{selectionMarker} {icon}  [{nameStyle}]{name}[/]{gitMarkup}";
     }
 
     public static void ShowError(string message)
@@ -235,6 +252,7 @@ public class FileManagerRenderer(IconProvider iconProvider)
 
         return new Align(table, HorizontalAlignment.Center, VerticalAlignment.Middle);
     }
+
     private static IRenderable CreateOpenWithMenuBody(
         List<(string Text, string Command)> options,
         int selectedIndex)

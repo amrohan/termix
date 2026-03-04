@@ -48,6 +48,7 @@ public class FileManagerState
     public HashSet<string> VisuallySelectedBookmarks { get; } = new();
     public List<Bookmark> PendingDeleteBookmarks { get; set; } = [];
     public bool ShowHiddenFiles { get; set; }
+    public Dictionary<string, string> GitStatuses { get; set; } = [];
 }
 
 public enum ConflictResolution
