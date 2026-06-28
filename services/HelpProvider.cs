@@ -41,6 +41,8 @@ public static class HelpProvider
         ("[cyan]t[/]", "Open the sort menu", "Normal"),
         ("[cyan]b[/]", "Go back to search results from browsed directory", "Filtered Nav"),
         ("[cyan]q[/]", "Quit the application", "All"),
-        ("[cyan]?[/]", "Show/hide this help screen", "Normal")
+        ("[cyan]?[/]", "Show/hide this help screen", "Normal"),
+        ("-- Tips --", "", ""),
+        ("[gray]Create folders[/]", "Press [green]a[/], enter [green]/folder[/] or [green]/parent/child[/].", "Normal"),
     ];
 }

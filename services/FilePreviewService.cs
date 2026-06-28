@@ -184,7 +184,7 @@ public class FilePreviewService(IconProvider iconProvider)
     {
         try
         {
-            using var archive = ArchiveFactory.Open(filePath);
+            using var archive = ArchiveFactory.OpenArchive(filePath);
             var allEntries = archive.Entries
                 .Where(e => !e.IsDirectory)
                 .OrderBy(e => e.Key)
