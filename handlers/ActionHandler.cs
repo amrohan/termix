@@ -4,7 +4,7 @@ using termix.Services;
 
 namespace termix.Handlers
 {
-    public class ActionHandler(FileManager fileManager, BookmarkService bookmarkService)
+    public class ActionHandler(FileManager fileManager, BookmarkService bookmarkService, TrashService trashService)
     {
         private readonly FileManagerState _state = fileManager.State;
 
@@ -13,6 +13,7 @@ namespace termix.Handlers
             _state.CurrentMode = InputMode.HelpScreen;
             fileManager.SetNeedsRedraw();
         }
+
         public void BeginPaste()
         {
             if (_state.Clipboard == null)
@@ -214,7 +215,7 @@ namespace termix.Handlers
             }, token);
         }
 
-        public void CommitDelete()
+        public void CommitDelete(bool permanent = false)
         {
             var itemsToDelete = _state.PendingDeleteItems.ToList();
             _state.PendingDeleteItems.Clear();
@@ -223,10 +224,13 @@ namespace termix.Handlers
             _state.IsOperationInProgress = true;
             _state.OperationCts = new CancellationTokenSource();
             var token = _state.OperationCts.Token;
+            var batchId = Guid.NewGuid();
 
             Task.Run(() =>
             {
                 ActionResponse response = new(true, "");
+                var trashedCount = 0;
+
                 for (var i = 0; i < itemsToDelete.Count; i++)
                 {
                     if (token.IsCancellationRequested)
@@ -236,8 +240,9 @@ namespace termix.Handlers
                     }
 
                     var item = itemsToDelete[i];
-                    var description = $"Deleting ({i + 1}/{itemsToDelete.Count}): {item.Name.EscapeMarkup()}";
-                    var progressValue = ((double)(i + 1) / itemsToDelete.Count) * 100;
+                    var verb = permanent ? "Deleting" : "Trashing";
+                    var description = $"{verb} ({i + 1}/{itemsToDelete.Count}): {item.Name.EscapeMarkup()}";
+                    var progressValue = (double)(i + 1) / itemsToDelete.Count * 100;
 
                     fileManager.ScheduleUiAction(() =>
                     {
@@ -246,22 +251,141 @@ namespace termix.Handlers
                         fileManager.SetNeedsRedraw();
                     });
 
-                    response = ActionService.Delete(item);
+                    if (permanent)
+                    {
+                        response = ActionService.Delete(item);
+                    }
+                    else
+                    {
+                        var (trashResponse, entry) = trashService.MoveToTrash(item, batchId);
+                        response = trashResponse;
+                        if (response.Success && entry != null) trashedCount++;
+                    }
+
                     if (!response.Success) break;
                 }
-
-                var finalResponse = response.Success
-                    ? new ActionResponse(true, response.Message)
-                    : response;
 
                 fileManager.ScheduleUiAction(() =>
                 {
                     _state.IsOperationInProgress = false;
-                    _state.StatusMessage = finalResponse.Message;
+
+                    if (!permanent && trashedCount > 0)
+                    {
+                        _state.LastTrashBatchId = batchId;
+                        _state.StatusMessage =
+                            $"[green]Moved {trashedCount} item(s) to trash. [bold]u[/] to undo, [bold]Shift+T[/] to browse.[/]";
+                    }
+                    else
+                    {
+                        _state.StatusMessage = response.Message;
+                    }
+
                     fileManager.RefreshDirectory(preserveSelection: true);
                 });
             }, token);
         }
+
+        public void UndoDelete()
+        {
+            if (_state.LastTrashBatchId is not { } batchId)
+            {
+                _state.StatusMessage = "[yellow]Nothing to undo.[/]";
+                fileManager.SetNeedsRedraw();
+                return;
+            }
+
+            var (restored, failed) = trashService.RestoreBatch(batchId);
+            _state.LastTrashBatchId = null;
+
+            _state.StatusMessage = failed.Count == 0
+                ? $"[green]Restored {restored.Count} item(s).[/]"
+                : $"[yellow]Restored {restored.Count}, failed to restore {failed.Count} item(s).[/]";
+
+            fileManager.RefreshDirectory(preserveSelection: true);
+        }
+
+        #region Trash
+
+        public void OpenTrashMenu()
+        {
+            _state.TrashEntries = trashService.LoadEntries();
+            _state.TrashMenuSelectedIndex = _state.TrashEntries.Count > 0 ? 0 : -1;
+            _state.CurrentMode = InputMode.TrashMenu;
+            fileManager.SetNeedsRedraw();
+        }
+
+        public void CloseTrashMenu()
+        {
+            fileManager.ResetToNormalMode();
+            fileManager.RefreshDirectory(preserveSelection: true);
+        }
+
+        public void RestoreSelectedTrashItem()
+        {
+            if (_state.TrashMenuSelectedIndex < 0 || _state.TrashMenuSelectedIndex >= _state.TrashEntries.Count) return;
+
+            var entry = _state.TrashEntries[_state.TrashMenuSelectedIndex];
+            var (response, _) = trashService.RestoreEntry(entry);
+
+            _state.StatusMessage = response.Message;
+            RefreshTrashMenuSelection();
+        }
+
+        public void BeginPurgeTrashItem()
+        {
+            if (_state.TrashMenuSelectedIndex < 0 || _state.TrashMenuSelectedIndex >= _state.TrashEntries.Count) return;
+
+            var entry = _state.TrashEntries[_state.TrashMenuSelectedIndex];
+            _state.PendingPurgeEntry = entry;
+            _state.CurrentMode = InputMode.TrashPurgeConfirm;
+            _state.PromptText =
+                $"Permanently delete '{entry.DisplayName.EscapeMarkup()}'? This cannot be undone. [bold green]y[/]/[bold red]n[/]";
+            fileManager.SetNeedsRedraw();
+        }
+
+        public void CommitPurgeTrashItem()
+        {
+            if (_state.PendingPurgeEntry is not { } entry)
+            {
+                _state.CurrentMode = InputMode.TrashMenu;
+                fileManager.SetNeedsRedraw();
+                return;
+            }
+
+            _state.StatusMessage = trashService.Purge(entry).Message;
+            _state.PendingPurgeEntry = null;
+            _state.CurrentMode = InputMode.TrashMenu;
+            RefreshTrashMenuSelection();
+        }
+
+        public void BeginEmptyTrash()
+        {
+            if (_state.TrashEntries.Count == 0) return;
+            _state.CurrentMode = InputMode.TrashEmptyConfirm;
+            _state.PromptText =
+                $"Permanently delete all {_state.TrashEntries.Count} trashed item(s)? [bold green]y[/]/[bold red]n[/]";
+            fileManager.SetNeedsRedraw();
+        }
+
+        public void CommitEmptyTrash()
+        {
+            _state.StatusMessage = trashService.EmptyTrash().Message;
+            _state.TrashEntries = [];
+            _state.TrashMenuSelectedIndex = -1;
+            _state.CurrentMode = InputMode.TrashMenu;
+            fileManager.SetNeedsRedraw();
+        }
+
+        private void RefreshTrashMenuSelection()
+        {
+            _state.TrashEntries = trashService.LoadEntries();
+            _state.TrashMenuSelectedIndex = _state.TrashEntries.Count == 0
+                ? -1
+                : Math.Clamp(_state.TrashMenuSelectedIndex, 0, _state.TrashEntries.Count - 1);
+            fileManager.SetNeedsRedraw();
+        }
+
+        #endregion
 
         public void BeginAdd()
         {
@@ -307,7 +431,8 @@ namespace termix.Handlers
             var itemName = itemsToDelete.Count == 1
                 ? $"'{itemsToDelete[0].Name.EscapeMarkup()}'"
                 : $"{itemsToDelete.Count} items";
-            _state.PromptText = $"Delete {itemName}? [bold green]y[/]/[bold red]n[/]";
+            _state.PromptText =
+                $"Move {itemName} to trash? [bold green]y[/]/[bold red]n[/]  ([grey]Shift+y[/] to delete permanently)";
             fileManager.SetNeedsRedraw();
         }
 
@@ -398,7 +523,7 @@ namespace termix.Handlers
             _state.SortMenuSelectedIndex = 0;
             fileManager.SetNeedsRedraw();
         }
-        
+
         public void BeginOpenWithMenu()
         {
             _state.CurrentMode = InputMode.OpenWithMenu;
@@ -411,10 +536,11 @@ namespace termix.Handlers
             if (_state.CurrentMode != InputMode.OpenWithMenu) return;
 
             var selectedOption = fileManager.OpenWithOptions[_state.OpenWithMenuSelectedIndex];
-            
+
             string pathToOpen = _state.CurrentPath;
-            var selectedItem = _state.SelectedIndex >= 0 && _state.SelectedIndex < _state.CurrentItems.Count 
-                ? _state.CurrentItems[_state.SelectedIndex] : null;
+            var selectedItem = _state.SelectedIndex >= 0 && _state.SelectedIndex < _state.CurrentItems.Count
+                ? _state.CurrentItems[_state.SelectedIndex]
+                : null;
 
             if (selectedItem is { IsDirectory: true })
             {
@@ -473,7 +599,8 @@ namespace termix.Handlers
         }
 
 
-        #region Bookmark 
+        #region Bookmark
+
         public void OpenBookmarkMenu()
         {
             _state.Bookmarks = bookmarkService.LoadBookmarks().OrderBy(b => b.Name).ToList();
@@ -497,15 +624,18 @@ namespace termix.Handlers
             FilterBookmarks("");
             fileManager.SetNeedsRedraw();
         }
+
         public void NavigateToSelectedBookmark()
         {
-            if (_state.BookmarkMenuSelectedIndex < 0 || _state.BookmarkMenuSelectedIndex >= _state.FilteredBookmarks.Count) return;
+            if (_state.BookmarkMenuSelectedIndex < 0 ||
+                _state.BookmarkMenuSelectedIndex >= _state.FilteredBookmarks.Count) return;
 
             var bookmark = _state.FilteredBookmarks[_state.BookmarkMenuSelectedIndex];
             fileManager.ResetToNormalMode();
             _state.CurrentPath = bookmark.Path;
             fileManager.RefreshDirectory(setInitialSelection: true);
         }
+
         public void BeginAddBookmark()
         {
             _state.CurrentMode = InputMode.AddBookmark;
@@ -513,6 +643,7 @@ namespace termix.Handlers
             _state.InputText = "";
             fileManager.SetNeedsRedraw();
         }
+
         private void AddBookmark(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -542,18 +673,23 @@ namespace termix.Handlers
             {
                 pathToBookmark = selectedItem.Path;
             }
+
             bookmarks.Add(new Bookmark(name, pathToBookmark));
             bookmarkService.SaveBookmarks(bookmarks);
 
-            var bookmarkedItemName = Path.GetFileName(pathToBookmark.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var bookmarkedItemName =
+                Path.GetFileName(pathToBookmark.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             if (string.IsNullOrEmpty(bookmarkedItemName)) bookmarkedItemName = pathToBookmark;
 
-            _state.StatusMessage = $"[green]Bookmark '{name.EscapeMarkup()}' added for '[yellow]{bookmarkedItemName.EscapeMarkup()}[/]'[/]";
+            _state.StatusMessage =
+                $"[green]Bookmark '{name.EscapeMarkup()}' added for '[yellow]{bookmarkedItemName.EscapeMarkup()}[/]'[/]";
             fileManager.ResetToNormalMode();
         }
+
         public void BeginRenameBookmark()
         {
-            if (_state.BookmarkMenuSelectedIndex < 0 || _state.BookmarkMenuSelectedIndex >= _state.FilteredBookmarks.Count) return;
+            if (_state.BookmarkMenuSelectedIndex < 0 ||
+                _state.BookmarkMenuSelectedIndex >= _state.FilteredBookmarks.Count) return;
             var bookmark = _state.FilteredBookmarks[_state.BookmarkMenuSelectedIndex];
 
             _state.CurrentMode = InputMode.RenameBookmark;
@@ -564,7 +700,8 @@ namespace termix.Handlers
 
         private void RenameBookmark(string newName)
         {
-            if (_state.BookmarkMenuSelectedIndex < 0 || _state.BookmarkMenuSelectedIndex >= _state.FilteredBookmarks.Count) return;
+            if (_state.BookmarkMenuSelectedIndex < 0 ||
+                _state.BookmarkMenuSelectedIndex >= _state.FilteredBookmarks.Count) return;
             if (string.IsNullOrWhiteSpace(newName))
             {
                 _state.StatusMessage = "[red]Bookmark name cannot be empty.[/]";
@@ -573,7 +710,8 @@ namespace termix.Handlers
 
             var originalBookmark = _state.FilteredBookmarks[_state.BookmarkMenuSelectedIndex];
             var bookmarks = bookmarkService.LoadBookmarks();
-            var bookmarkToUpdate = bookmarks.FirstOrDefault(b => b.Name.Equals(originalBookmark.Name, StringComparison.OrdinalIgnoreCase));
+            var bookmarkToUpdate = bookmarks.FirstOrDefault(b =>
+                b.Name.Equals(originalBookmark.Name, StringComparison.OrdinalIgnoreCase));
 
             if (bookmarkToUpdate != null)
             {
@@ -594,7 +732,8 @@ namespace termix.Handlers
                 var selectedNames = _state.VisuallySelectedBookmarks.ToHashSet();
                 bookmarksToDelete.AddRange(_state.FilteredBookmarks.Where(b => selectedNames.Contains(b.Name)));
             }
-            else if (_state.BookmarkMenuSelectedIndex >= 0 && _state.BookmarkMenuSelectedIndex < _state.FilteredBookmarks.Count)
+            else if (_state.BookmarkMenuSelectedIndex >= 0 &&
+                     _state.BookmarkMenuSelectedIndex < _state.FilteredBookmarks.Count)
             {
                 bookmarksToDelete.Add(_state.FilteredBookmarks[_state.BookmarkMenuSelectedIndex]);
             }
@@ -614,7 +753,8 @@ namespace termix.Handlers
         public void CommitDeleteBookmark()
         {
             var bookmarks = bookmarkService.LoadBookmarks();
-            var namesToDelete = _state.PendingDeleteBookmarks.Select(b => b.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var namesToDelete = _state.PendingDeleteBookmarks.Select(b => b.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             bookmarks.RemoveAll(b => namesToDelete.Contains(b.Name));
             bookmarkService.SaveBookmarks(bookmarks);
@@ -646,7 +786,8 @@ namespace termix.Handlers
 
         public void ToggleBookmarkVisualSelection()
         {
-            if (_state.BookmarkMenuSelectedIndex < 0 || _state.BookmarkMenuSelectedIndex >= _state.FilteredBookmarks.Count) return;
+            if (_state.BookmarkMenuSelectedIndex < 0 ||
+                _state.BookmarkMenuSelectedIndex >= _state.FilteredBookmarks.Count) return;
 
             var item = _state.FilteredBookmarks[_state.BookmarkMenuSelectedIndex];
 

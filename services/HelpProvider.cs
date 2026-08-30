@@ -42,6 +42,12 @@ public static class HelpProvider
         ("[cyan]b[/]", "Go back to search results from browsed directory", "Filtered Nav"),
         ("[cyan]q[/]", "Quit the application", "All"),
         ("[cyan]?[/]", "Show/hide this help screen", "Normal"),
+        ("-- Trash --", "", ""),
+        ("[cyan]Shift+T[/]", "Open the trash browser", "Normal"),
+        ("[cyan]u[/]", "Undo the last delete", "Normal"),
+        ("[cyan]Enter[/]", "Restore selected item", "Trash Menu"),
+        ("[cyan]d[/]", "Permanently purge selected item", "Trash Menu"),
+        ("[cyan]Shift+E[/]", "Permanently empty entire trash", "Trash Menu"),
         ("-- Tips --", "", ""),
         ("[gray]Create folders[/]", "Press [green]a[/], enter [green]/folder[/] or [green]/parent/child[/].", "Normal"),
     ];

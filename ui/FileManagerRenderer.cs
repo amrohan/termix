@@ -27,6 +27,9 @@ public class FileManagerRenderer(IconProvider iconProvider)
                 or InputMode.RenameBookmark or InputMode.BookmarkDeleteConfirm:
                 body = CreateBookmarkMenuBody(fm.State);
                 break;
+            case InputMode.TrashMenu or InputMode.TrashPurgeConfirm or InputMode.TrashEmptyConfirm:
+                body = CreateTrashMenuBody(fm.State);
+                break;
             default:
                 body = CreateFileBrowserBody(fm.State, fm.State.CurrentPreview);
                 break;
@@ -272,5 +275,39 @@ public class FileManagerRenderer(IconProvider iconProvider)
         }
 
         return new Align(table, HorizontalAlignment.Center, VerticalAlignment.Middle);
+    }
+
+    private static IRenderable CreateTrashMenuBody(FileManagerState state)
+    {
+        var table = new Table()
+            .Title("[bold]Trash[/]")
+            .Border(TableBorder.Rounded)
+            .BorderStyle("yellow")
+            .Expand();
+
+        table.AddColumn("Name", c => c.Width(2));
+        table.AddColumn("Original Location", c => c.Width(3));
+        table.AddColumn(new TableColumn("Deleted").RightAligned().Width(2));
+
+        if (state.TrashEntries.Count == 0)
+        {
+            table.AddRow(new Markup("[grey]Trash is empty.[/]"));
+        }
+        else
+        {
+            for (var i = 0; i < state.TrashEntries.Count; i++)
+            {
+                var entry = state.TrashEntries[i];
+                var style = i == state.TrashMenuSelectedIndex ? new Style(background: Color.DodgerBlue1) : Style.Plain;
+                var originalDir = Path.GetDirectoryName(entry.OriginalPath) ?? "";
+
+                table.AddRow(
+                    new Markup(entry.DisplayName.EscapeMarkup(), style),
+                    new Markup(originalDir.EscapeMarkup(), style),
+                    new Markup(entry.DeletedAt.ToString("yyyy-MM-dd HH:mm"), style));
+            }
+        }
+
+        return new Align(table, HorizontalAlignment.Center, VerticalAlignment.Top);
     }
 }

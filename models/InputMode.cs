@@ -15,10 +15,13 @@ public enum InputMode
     CreateDirConfirm,
     HelpScreen,
     BookmarkMenu,
-    BookmarkFilter, 
+    BookmarkFilter,
     BookmarkVisual,
     AddBookmark,
     RenameBookmark,
     BookmarkDeleteConfirm,
-    OpenWithMenu
+    OpenWithMenu,
+    TrashMenu,
+    TrashPurgeConfirm,
+    TrashEmptyConfirm
 }

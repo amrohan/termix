@@ -19,6 +19,7 @@ public class FileManager
     private readonly FilePreviewService _filePreviewService;
     private readonly FileManagerRenderer _renderer;
     private readonly ConfigService _configService = new();
+    private readonly TrashService _trashService = new();
 
     public readonly List<(string Text, string Command)> OpenWithOptions = OpenWithOptionsProvider.GetOptions();
     private bool _needsRedraw = true;
@@ -51,7 +52,7 @@ public class FileManager
         _renderer = new FileManagerRenderer(iconProvider);
         _filePreviewService = new FilePreviewService(iconProvider);
         var bookmarkService = new BookmarkService();
-        ActionHandler = new ActionHandler(this, bookmarkService);
+        ActionHandler = new ActionHandler(this, bookmarkService, _trashService);
         NavigationHandler = new NavigationHandler(this);
         FilterHandler = new FilterHandler(this);
         _inputHandler = new InputHandler(this);
@@ -250,7 +251,8 @@ public class FileManager
         switch (State.CurrentMode)
         {
             case InputMode.DeleteConfirm or InputMode.QuitConfirm or InputMode.CreateDirConfirm
-                or InputMode.BookmarkDeleteConfirm or InputMode.PasteConflict:
+                or InputMode.BookmarkDeleteConfirm or InputMode.PasteConflict
+                or InputMode.TrashPurgeConfirm or InputMode.TrashEmptyConfirm:
                 return new Panel(new Markup(State.PromptText))
                 {
                     Border = BoxBorder.Rounded,
@@ -319,6 +321,9 @@ public class FileManager
             case InputMode.Normal when !string.IsNullOrEmpty(State.InputText):
                 return
                     $"[grey]Results for '[yellow]{State.InputText.EscapeMarkup()}[/]'. Press [cyan]Esc[/] to clear, or [cyan]S[/] for new search.[/]";
+            case InputMode.TrashMenu:
+                return
+                    "[grey]Use[/] [cyan]↓↑/JK[/] [grey]Move[/] | [cyan]Enter[/] [grey]Restore[/] | [cyan]d[/] [grey]Purge[/] | [cyan]Shift+E[/] [grey]Empty All[/] | [cyan]Esc[/] [grey]Close[/]";
             default:
                 if (State.Clipboard == null)
                     return

@@ -49,6 +49,11 @@ public class FileManagerState
     public List<Bookmark> PendingDeleteBookmarks { get; set; } = [];
     public bool ShowHiddenFiles { get; set; }
     public Dictionary<string, string> GitStatuses { get; set; } = [];
+    public List<List<TrashEntry>> TrashUndoStack { get; set; } = [];
+    public Guid? LastTrashBatchId { get; set; }
+    public List<TrashEntry> TrashEntries { get; set; } = [];
+    public int TrashMenuSelectedIndex { get; set; }
+    public TrashEntry? PendingPurgeEntry { get; set; }
 }
 
 public enum ConflictResolution

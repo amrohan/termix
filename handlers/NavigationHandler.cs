@@ -17,6 +17,7 @@ public class NavigationHandler(FileManager fileManager)
         fileManager.AdjustViewPort();
         fileManager.UpdatePreview();
     }
+
     public void MoveBookmarkSelection(int direction)
     {
         if (_state.FilteredBookmarks.Count == 0) return;
@@ -96,6 +97,7 @@ public class NavigationHandler(FileManager fileManager)
         _state.SortMenuSelectedIndex = Math.Clamp(newIndex, 0, fileManager.SortOptions.Count - 1);
         fileManager.SetNeedsRedraw();
     }
+
     public void MoveOpenWithMenuSelection(int direction)
     {
         if (_state.CurrentMode != InputMode.OpenWithMenu) return;
@@ -138,6 +140,15 @@ public class NavigationHandler(FileManager fileManager)
         var newOffset = _state.HelpVerticalOffset + direction;
 
         _state.HelpVerticalOffset = Math.Clamp(newOffset, 0, maxOffset);
+        fileManager.SetNeedsRedraw();
+    }
+
+    public void MoveTrashSelection(int direction)
+    {
+        if (_state.TrashEntries.Count == 0) return;
+        var newIndex = Math.Clamp(_state.TrashMenuSelectedIndex + direction, 0, _state.TrashEntries.Count - 1);
+        if (newIndex == _state.TrashMenuSelectedIndex) return;
+        _state.TrashMenuSelectedIndex = newIndex;
         fileManager.SetNeedsRedraw();
     }
 }

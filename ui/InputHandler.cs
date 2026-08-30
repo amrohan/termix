@@ -58,6 +58,9 @@ public class InputHandler(FileManager fileManager)
             case InputMode.OpenWithMenu:
                 HandleOpenWithMenuInput(keyInfo);
                 break;
+            case InputMode.TrashMenu:
+                HandleTrashMenuInput(keyInfo);
+                break;
             default:
                 HandleInputModeKeyPress(keyInfo);
                 break;
@@ -247,9 +250,15 @@ public class InputHandler(FileManager fileManager)
             case ConsoleKey.R: fileManager.ActionHandler.BeginRename(); break;
             case ConsoleKey.D: fileManager.ActionHandler.BeginDelete(); break;
             case ConsoleKey.S: fileManager.FilterHandler.BeginFilter(); break;
-            case ConsoleKey.T: fileManager.ActionHandler.BeginSortMenu(); break;
+            case ConsoleKey.T when keyInfo.Modifiers == ConsoleModifiers.Shift:
+                fileManager.ActionHandler.OpenTrashMenu();
+                break;
+            case ConsoleKey.T:
+                fileManager.ActionHandler.BeginSortMenu();
+                break;
             case ConsoleKey.X: fileManager.ActionHandler.BeginMove(); break;
             case ConsoleKey.P: fileManager.ActionHandler.BeginPaste(); break;
+            case ConsoleKey.U: fileManager.ActionHandler.UndoDelete(); break;
         }
     }
 
@@ -382,13 +391,19 @@ public class InputHandler(FileManager fileManager)
                 HandleStandardTextInput(keyInfo);
                 break;
             case InputMode.DeleteConfirm:
-                HandleDeleteConfirmation(keyInfo.Key);
+                HandleDeleteConfirmation(keyInfo);
                 break;
             case InputMode.BookmarkDeleteConfirm:
                 HandleBookmarkDeleteConfirmation(keyInfo.Key);
                 break;
             case InputMode.QuitConfirm:
                 HandleQuitConfirmation(keyInfo.Key);
+                break;
+            case InputMode.TrashPurgeConfirm:
+                HandleTrashPurgeConfirmation(keyInfo.Key);
+                break;
+            case InputMode.TrashEmptyConfirm:
+                HandleTrashEmptyConfirmation(keyInfo.Key);
                 break;
         }
     }
@@ -510,12 +525,19 @@ public class InputHandler(FileManager fileManager)
         }
     }
 
-    private void HandleDeleteConfirmation(ConsoleKey key)
+    private void HandleDeleteConfirmation(ConsoleKeyInfo keyInfo)
     {
-        switch (key)
+        switch (keyInfo.Key)
         {
-            case ConsoleKey.Y: fileManager.ActionHandler.CommitDelete(); break;
-            case ConsoleKey.N or ConsoleKey.Escape: fileManager.ResetToNormalMode(); break;
+            case ConsoleKey.Y when keyInfo.Modifiers == ConsoleModifiers.Shift:
+                fileManager.ActionHandler.CommitDelete(permanent: true);
+                break;
+            case ConsoleKey.Y:
+                fileManager.ActionHandler.CommitDelete();
+                break;
+            case ConsoleKey.N or ConsoleKey.Escape:
+                fileManager.ResetToNormalMode();
+                break;
         }
     }
 
@@ -580,6 +602,59 @@ public class InputHandler(FileManager fileManager)
             case ConsoleKey.DownArrow:
             case ConsoleKey.J:
                 fileManager.NavigationHandler.ScrollHelpScreen(1);
+                break;
+        }
+    }
+
+    private void HandleTrashMenuInput(ConsoleKeyInfo keyInfo)
+    {
+        switch (keyInfo.Key)
+        {
+            case ConsoleKey.DownArrow:
+            case ConsoleKey.J:
+                fileManager.NavigationHandler.MoveTrashSelection(1);
+                break;
+            case ConsoleKey.UpArrow:
+            case ConsoleKey.K:
+                fileManager.NavigationHandler.MoveTrashSelection(-1);
+                break;
+            case ConsoleKey.Enter:
+                fileManager.ActionHandler.RestoreSelectedTrashItem();
+                break;
+            case ConsoleKey.D:
+                fileManager.ActionHandler.BeginPurgeTrashItem();
+                break;
+            case ConsoleKey.E when keyInfo.Modifiers == ConsoleModifiers.Shift:
+                fileManager.ActionHandler.BeginEmptyTrash();
+                break;
+            case ConsoleKey.Escape:
+            case ConsoleKey.Q:
+                fileManager.ActionHandler.CloseTrashMenu();
+                break;
+        }
+    }
+
+    private void HandleTrashPurgeConfirmation(ConsoleKey key)
+    {
+        switch (key)
+        {
+            case ConsoleKey.Y: fileManager.ActionHandler.CommitPurgeTrashItem(); break;
+            case ConsoleKey.N or ConsoleKey.Escape:
+                _state.PendingPurgeEntry = null;
+                _state.CurrentMode = InputMode.TrashMenu;
+                fileManager.SetNeedsRedraw();
+                break;
+        }
+    }
+
+    private void HandleTrashEmptyConfirmation(ConsoleKey key)
+    {
+        switch (key)
+        {
+            case ConsoleKey.Y: fileManager.ActionHandler.CommitEmptyTrash(); break;
+            case ConsoleKey.N or ConsoleKey.Escape:
+                _state.CurrentMode = InputMode.TrashMenu;
+                fileManager.SetNeedsRedraw();
                 break;
         }
     }
