@@ -63,17 +63,19 @@ public abstract class FileSystemService
         return items;
     }
 
-    public static void OpenFile(string filePath)
+    public static ActionResponse OpenFile(string filePath)
     {
         try
         {
             var processStartInfo = new ProcessStartInfo(filePath) { UseShellExecute = true };
             Process.Start(processStartInfo);
+            return new ActionResponse(true, "");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            AnsiConsole.MarkupLine($"[red]Error opening file: {ex.Message}[/]");
-            Console.ReadKey(true);
+            var fileName = Path.GetFileName(filePath);
+            return new ActionResponse(false,
+                $"[red]No application found to open '{fileName.EscapeMarkup()}'.[/]");
         }
     }
 }

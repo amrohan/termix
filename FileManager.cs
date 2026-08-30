@@ -323,7 +323,10 @@ public class FileManager
                     $"[grey]Results for '[yellow]{State.InputText.EscapeMarkup()}[/]'. Press [cyan]Esc[/] to clear, or [cyan]S[/] for new search.[/]";
             case InputMode.TrashMenu:
                 return
-                    "[grey]Use[/] [cyan]↓↑/JK[/] [grey]Move[/] | [cyan]Enter[/] [grey]Restore[/] | [cyan]d[/] [grey]Purge[/] | [cyan]Shift+E[/] [grey]Empty All[/] | [cyan]Esc[/] [grey]Close[/]";
+                    "[grey]Use[/] [cyan]↓↑/JK[/] [grey]Move[/] | [cyan]Enter[/] [grey]Restore[/] | [cyan]v[/] [grey]Visual[/] | [cyan]d[/] [grey]Purge[/] | [cyan]Shift+E[/] [grey]Empty All[/] | [cyan]Esc[/] [grey]Close[/]";
+            case InputMode.TrashVisual:
+                return
+                    $"[bold yellow]-- VISUAL TRASH --[/] [grey]Selected:[/][yellow] {State.VisuallySelectedTrashItems.Count} [/] | [cyan]Space[/] [grey]Toggle[/] | [cyan]Enter[/] [grey]Restore[/] | [cyan]d[/] [grey]Purge[/] | [cyan]Esc[/] [grey]Cancel[/]";
             default:
                 if (State.Clipboard == null)
                     return

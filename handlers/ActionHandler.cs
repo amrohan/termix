@@ -320,59 +320,12 @@ namespace termix.Handlers
             fileManager.RefreshDirectory(preserveSelection: true);
         }
 
-        public void RestoreSelectedTrashItem()
-        {
-            if (_state.TrashMenuSelectedIndex < 0 || _state.TrashMenuSelectedIndex >= _state.TrashEntries.Count) return;
-
-            var entry = _state.TrashEntries[_state.TrashMenuSelectedIndex];
-            var (response, _) = trashService.RestoreEntry(entry);
-
-            _state.StatusMessage = response.Message;
-            RefreshTrashMenuSelection();
-        }
-
-        public void BeginPurgeTrashItem()
-        {
-            if (_state.TrashMenuSelectedIndex < 0 || _state.TrashMenuSelectedIndex >= _state.TrashEntries.Count) return;
-
-            var entry = _state.TrashEntries[_state.TrashMenuSelectedIndex];
-            _state.PendingPurgeEntry = entry;
-            _state.CurrentMode = InputMode.TrashPurgeConfirm;
-            _state.PromptText =
-                $"Permanently delete '{entry.DisplayName.EscapeMarkup()}'? This cannot be undone. [bold green]y[/]/[bold red]n[/]";
-            fileManager.SetNeedsRedraw();
-        }
-
-        public void CommitPurgeTrashItem()
-        {
-            if (_state.PendingPurgeEntry is not { } entry)
-            {
-                _state.CurrentMode = InputMode.TrashMenu;
-                fileManager.SetNeedsRedraw();
-                return;
-            }
-
-            _state.StatusMessage = trashService.Purge(entry).Message;
-            _state.PendingPurgeEntry = null;
-            _state.CurrentMode = InputMode.TrashMenu;
-            RefreshTrashMenuSelection();
-        }
-
         public void BeginEmptyTrash()
         {
             if (_state.TrashEntries.Count == 0) return;
             _state.CurrentMode = InputMode.TrashEmptyConfirm;
             _state.PromptText =
                 $"Permanently delete all {_state.TrashEntries.Count} trashed item(s)? [bold green]y[/]/[bold red]n[/]";
-            fileManager.SetNeedsRedraw();
-        }
-
-        public void CommitEmptyTrash()
-        {
-            _state.StatusMessage = trashService.EmptyTrash().Message;
-            _state.TrashEntries = [];
-            _state.TrashMenuSelectedIndex = -1;
-            _state.CurrentMode = InputMode.TrashMenu;
             fileManager.SetNeedsRedraw();
         }
 
@@ -383,6 +336,145 @@ namespace termix.Handlers
                 ? -1
                 : Math.Clamp(_state.TrashMenuSelectedIndex, 0, _state.TrashEntries.Count - 1);
             fileManager.SetNeedsRedraw();
+        }
+
+        public void ToggleTrashVisualSelection()
+        {
+            if (_state.TrashMenuSelectedIndex < 0 || _state.TrashMenuSelectedIndex >= _state.TrashEntries.Count) return;
+
+            var entry = _state.TrashEntries[_state.TrashMenuSelectedIndex];
+            if (!_state.VisuallySelectedTrashItems.Add(entry.TrashPath))
+                _state.VisuallySelectedTrashItems.Remove(entry.TrashPath);
+
+            fileManager.SetNeedsRedraw();
+        }
+
+        private List<TrashEntry> GetSelectedTrashEntries()
+        {
+            if (_state.CurrentMode == InputMode.TrashVisual && _state.VisuallySelectedTrashItems.Count > 0)
+                return _state.TrashEntries
+                    .Where(e => _state.VisuallySelectedTrashItems.Contains(e.TrashPath))
+                    .ToList();
+
+            if (_state.TrashMenuSelectedIndex >= 0 && _state.TrashMenuSelectedIndex < _state.TrashEntries.Count)
+                return [_state.TrashEntries[_state.TrashMenuSelectedIndex]];
+
+            return [];
+        }
+
+        public void BeginPurgeTrashItem()
+        {
+            var entriesToPurge = GetSelectedTrashEntries();
+            if (entriesToPurge.Count == 0) return;
+
+            _state.PendingPurgeEntries = entriesToPurge;
+            _state.CurrentMode = InputMode.TrashPurgeConfirm;
+            var label = entriesToPurge.Count == 1
+                ? $"'{entriesToPurge[0].DisplayName.EscapeMarkup()}'"
+                : $"{entriesToPurge.Count} items";
+            _state.PromptText = $"Permanently delete {label}? This cannot be undone. [bold green]y[/]/[bold red]n[/]";
+            fileManager.SetNeedsRedraw();
+        }
+
+        public void RestoreSelectedTrashItem()
+        {
+            var entriesToRestore = GetSelectedTrashEntries();
+            if (entriesToRestore.Count == 0) return;
+
+            _state.IsOperationInProgress = true;
+            fileManager.SetNeedsRedraw();
+
+            Task.Run(() =>
+            {
+                var (restored, failed) = trashService.RestoreEntries(entriesToRestore, (current, total, name) =>
+                {
+                    fileManager.ScheduleUiAction(() =>
+                    {
+                        _state.ProgressTaskDescription = $"Restoring ({current}/{total}): {name.EscapeMarkup()}";
+                        _state.ProgressValue = (double)current / total * 100;
+                        fileManager.SetNeedsRedraw();
+                    });
+                });
+
+                fileManager.ScheduleUiAction(() =>
+                {
+                    _state.IsOperationInProgress = false;
+                    _state.StatusMessage = failed.Count == 0
+                        ? $"[green]Restored {restored.Count} item(s).[/]"
+                        : $"[yellow]Restored {restored.Count}, failed to restore {failed.Count} item(s).[/]";
+
+                    _state.VisuallySelectedTrashItems.Clear();
+                    if (_state.CurrentMode == InputMode.TrashVisual) _state.CurrentMode = InputMode.TrashMenu;
+
+                    RefreshTrashMenuSelection();
+                });
+            });
+        }
+
+        public void CommitPurgeTrashItem()
+        {
+            if (_state.PendingPurgeEntries.Count == 0)
+            {
+                _state.CurrentMode = InputMode.TrashMenu;
+                fileManager.SetNeedsRedraw();
+                return;
+            }
+
+            var entriesToPurge = _state.PendingPurgeEntries;
+            _state.PendingPurgeEntries = [];
+            _state.IsOperationInProgress = true;
+            fileManager.SetNeedsRedraw();
+
+            Task.Run(() =>
+            {
+                var response = trashService.PurgeMany(entriesToPurge, (current, total, name) =>
+                {
+                    fileManager.ScheduleUiAction(() =>
+                    {
+                        _state.ProgressTaskDescription = $"Purging ({current}/{total}): {name.EscapeMarkup()}";
+                        _state.ProgressValue = (double)current / total * 100;
+                        fileManager.SetNeedsRedraw();
+                    });
+                });
+
+                fileManager.ScheduleUiAction(() =>
+                {
+                    _state.IsOperationInProgress = false;
+                    _state.StatusMessage = response.Message;
+                    _state.VisuallySelectedTrashItems.Clear();
+                    _state.CurrentMode = InputMode.TrashMenu;
+                    RefreshTrashMenuSelection();
+                });
+            });
+        }
+
+        public void CommitEmptyTrash()
+        {
+            _state.IsOperationInProgress = true;
+            fileManager.SetNeedsRedraw();
+
+            Task.Run(() =>
+            {
+                var response = trashService.EmptyTrash((current, total, name) =>
+                {
+                    fileManager.ScheduleUiAction(() =>
+                    {
+                        _state.ProgressTaskDescription = $"Emptying trash ({current}/{total}): {name.EscapeMarkup()}";
+                        _state.ProgressValue = (double)current / total * 100;
+                        fileManager.SetNeedsRedraw();
+                    });
+                });
+
+                fileManager.ScheduleUiAction(() =>
+                {
+                    _state.IsOperationInProgress = false;
+                    _state.StatusMessage = response.Message;
+                    _state.TrashEntries = [];
+                    _state.TrashMenuSelectedIndex = -1;
+                    _state.CurrentMode = InputMode.TrashMenu;
+                    fileManager.SetNeedsRedraw();
+                });
+            });
         }
 
         #endregion

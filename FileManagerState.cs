@@ -53,7 +53,8 @@ public class FileManagerState
     public Guid? LastTrashBatchId { get; set; }
     public List<TrashEntry> TrashEntries { get; set; } = [];
     public int TrashMenuSelectedIndex { get; set; }
-    public TrashEntry? PendingPurgeEntry { get; set; }
+    public HashSet<string> VisuallySelectedTrashItems { get; } = new();
+    public List<TrashEntry> PendingPurgeEntries { get; set; } = [];
 }
 
 public enum ConflictResolution

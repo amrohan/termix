@@ -27,7 +27,8 @@ public class FileManagerRenderer(IconProvider iconProvider)
                 or InputMode.RenameBookmark or InputMode.BookmarkDeleteConfirm:
                 body = CreateBookmarkMenuBody(fm.State);
                 break;
-            case InputMode.TrashMenu or InputMode.TrashPurgeConfirm or InputMode.TrashEmptyConfirm:
+            case InputMode.TrashMenu or InputMode.TrashPurgeConfirm or InputMode.TrashEmptyConfirm
+                or InputMode.TrashVisual:
                 body = CreateTrashMenuBody(fm.State);
                 break;
             default:
@@ -279,11 +280,7 @@ public class FileManagerRenderer(IconProvider iconProvider)
 
     private static IRenderable CreateTrashMenuBody(FileManagerState state)
     {
-        var table = new Table()
-            .Title("[bold]Trash[/]")
-            .Border(TableBorder.Rounded)
-            .BorderStyle("yellow")
-            .Expand();
+        var table = new Table().Title("[bold]Trash[/]").Border(TableBorder.Rounded).BorderStyle("yellow").Expand();
 
         table.AddColumn("Name", c => c.Width(2));
         table.AddColumn("Original Location", c => c.Width(3));
@@ -298,11 +295,18 @@ public class FileManagerRenderer(IconProvider iconProvider)
             for (var i = 0; i < state.TrashEntries.Count; i++)
             {
                 var entry = state.TrashEntries[i];
-                var style = i == state.TrashMenuSelectedIndex ? new Style(background: Color.DodgerBlue1) : Style.Plain;
+                var isSelected = i == state.TrashMenuSelectedIndex;
+                var isVisuallySelected = state.VisuallySelectedTrashItems.Contains(entry.TrashPath);
+
+                var style = isSelected ? new Style(background: Color.DodgerBlue1)
+                    : isVisuallySelected ? new Style(background: Color.Grey30)
+                    : Style.Plain;
+
+                var marker = isVisuallySelected ? "[yellow]*[/] " : "  ";
                 var originalDir = Path.GetDirectoryName(entry.OriginalPath) ?? "";
 
                 table.AddRow(
-                    new Markup(entry.DisplayName.EscapeMarkup(), style),
+                    new Markup(marker + entry.DisplayName.EscapeMarkup(), style),
                     new Markup(originalDir.EscapeMarkup(), style),
                     new Markup(entry.DeletedAt.ToString("yyyy-MM-dd HH:mm"), style));
             }

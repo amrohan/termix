@@ -69,90 +69,6 @@ public class TrashService
         return RestoreMany(batch, entries);
     }
 
-    public (ActionResponse Response, TrashEntry? Updated) RestoreEntry(TrashEntry entry)
-    {
-        var entries = LoadEntries();
-        var (restored, failed) = RestoreMany([entry], entries);
-
-        if (restored.Count > 0)
-            return (new ActionResponse(true, $"[green]Restored '{entry.DisplayName.EscapeMarkup()}'[/]"), entry);
-
-        var reason = failed.Count > 0 ? failed[0].Error : "unknown error";
-        return (new ActionResponse(false, $"[red]Restore failed: {reason.EscapeMarkup()}[/]"), null);
-    }
-
-    private (List<TrashEntry> Restored, List<(TrashEntry Entry, string Error)> Failed) RestoreMany(
-        List<TrashEntry> toRestore, List<TrashEntry> allEntries)
-    {
-        var restored = new List<TrashEntry>();
-        var failed = new List<(TrashEntry, string)>();
-
-        foreach (var entry in toRestore.OrderByDescending(e => e.DeletedAt))
-        {
-            try
-            {
-                if (File.Exists(entry.OriginalPath) || Directory.Exists(entry.OriginalPath))
-                {
-                    failed.Add((entry, "an item already exists at the original location"));
-                    continue;
-                }
-
-                var parentDir = Path.GetDirectoryName(entry.OriginalPath);
-                if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
-                    Directory.CreateDirectory(parentDir);
-
-                MoveWithFallback(entry.TrashPath, entry.OriginalPath, entry.IsDirectory);
-                restored.Add(entry);
-                allEntries.RemoveAll(e => e.TrashPath == entry.TrashPath);
-            }
-            catch (Exception ex)
-            {
-                failed.Add((entry, ex.Message));
-            }
-        }
-
-        SaveEntries(allEntries);
-        return (restored, failed);
-    }
-
-    public ActionResponse Purge(TrashEntry entry)
-    {
-        try
-        {
-            if (entry.IsDirectory && Directory.Exists(entry.TrashPath)) Directory.Delete(entry.TrashPath, true);
-            else if (File.Exists(entry.TrashPath)) File.Delete(entry.TrashPath);
-
-            var entries = LoadEntries();
-            entries.RemoveAll(e => e.TrashPath == entry.TrashPath);
-            SaveEntries(entries);
-
-            return new ActionResponse(true, $"[green]Permanently deleted '{entry.DisplayName.EscapeMarkup()}'[/]");
-        }
-        catch (Exception ex)
-        {
-            return new ActionResponse(false, $"[red]Purge failed: {ex.Message.EscapeMarkup()}[/]");
-        }
-    }
-
-    public ActionResponse EmptyTrash()
-    {
-        try
-        {
-            foreach (var entry in Directory.EnumerateFileSystemEntries(_trashDir))
-            {
-                if (Directory.Exists(entry)) Directory.Delete(entry, true);
-                else File.Delete(entry);
-            }
-
-            SaveEntries([]);
-            return new ActionResponse(true, "[green]Trash emptied.[/]");
-        }
-        catch (Exception ex)
-        {
-            return new ActionResponse(false, $"[red]Failed to empty trash: {ex.Message.EscapeMarkup()}[/]");
-        }
-    }
-
     private static void MoveWithFallback(string sourcePath, string destPath, bool isDirectory)
     {
         try
@@ -182,5 +98,97 @@ public class TrashService
             File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)));
         foreach (var dir in Directory.GetDirectories(sourceDir))
             CopyDirectory(dir, Path.Combine(destDir, Path.GetFileName(dir)));
+    }
+
+    public (List<TrashEntry> Restored, List<(TrashEntry Entry, string Error)> Failed) RestoreEntries(
+        List<TrashEntry> entriesToRestore, Action<int, int, string>? onProgress = null)
+    {
+        var entries = LoadEntries();
+        return RestoreMany(entriesToRestore, entries, onProgress);
+    }
+
+    private (List<TrashEntry> Restored, List<(TrashEntry Entry, string Error)> Failed) RestoreMany(
+        List<TrashEntry> toRestore, List<TrashEntry> allEntries, Action<int, int, string>? onProgress = null)
+    {
+        var restored = new List<TrashEntry>();
+        var failed = new List<(TrashEntry, string)>();
+        var ordered = toRestore.OrderByDescending(e => e.DeletedAt).ToList();
+
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            var entry = ordered[i];
+            onProgress?.Invoke(i + 1, ordered.Count, entry.DisplayName);
+
+            try
+            {
+                if (File.Exists(entry.OriginalPath) || Directory.Exists(entry.OriginalPath))
+                {
+                    failed.Add((entry, "an item already exists at the original location"));
+                    continue;
+                }
+
+                var parentDir = Path.GetDirectoryName(entry.OriginalPath);
+                if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
+                    Directory.CreateDirectory(parentDir);
+
+                MoveWithFallback(entry.TrashPath, entry.OriginalPath, entry.IsDirectory);
+                restored.Add(entry);
+                allEntries.RemoveAll(e => e.TrashPath == entry.TrashPath);
+            }
+            catch (Exception ex)
+            {
+                failed.Add((entry, ex.Message));
+            }
+        }
+
+        SaveEntries(allEntries);
+        return (restored, failed);
+    }
+
+    public ActionResponse PurgeMany(List<TrashEntry> entriesToPurge, Action<int, int, string>? onProgress = null)
+    {
+        try
+        {
+            var entries = LoadEntries();
+            for (var i = 0; i < entriesToPurge.Count; i++)
+            {
+                var entry = entriesToPurge[i];
+                onProgress?.Invoke(i + 1, entriesToPurge.Count, entry.DisplayName);
+
+                if (entry.IsDirectory && Directory.Exists(entry.TrashPath)) Directory.Delete(entry.TrashPath, true);
+                else if (File.Exists(entry.TrashPath)) File.Delete(entry.TrashPath);
+                entries.RemoveAll(e => e.TrashPath == entry.TrashPath);
+            }
+
+            SaveEntries(entries);
+            return new ActionResponse(true, $"[green]Permanently deleted {entriesToPurge.Count} item(s).[/]");
+        }
+        catch (Exception ex)
+        {
+            return new ActionResponse(false, $"[red]Purge failed: {ex.Message.EscapeMarkup()}[/]");
+        }
+    }
+
+    public ActionResponse EmptyTrash(Action<int, int, string>? onProgress = null)
+    {
+        try
+        {
+            var items = Directory.EnumerateFileSystemEntries(_trashDir).ToList();
+            for (var i = 0; i < items.Count; i++)
+            {
+                var path = items[i];
+                onProgress?.Invoke(i + 1, items.Count, Path.GetFileName(path));
+
+                if (Directory.Exists(path)) Directory.Delete(path, true);
+                else File.Delete(path);
+            }
+
+            SaveEntries([]);
+            return new ActionResponse(true, "[green]Trash emptied.[/]");
+        }
+        catch (Exception ex)
+        {
+            return new ActionResponse(false, $"[red]Failed to empty trash: {ex.Message.EscapeMarkup()}[/]");
+        }
     }
 }

@@ -23,5 +23,6 @@ public enum InputMode
     OpenWithMenu,
     TrashMenu,
     TrashPurgeConfirm,
-    TrashEmptyConfirm
+    TrashEmptyConfirm,
+    TrashVisual
 }

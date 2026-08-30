@@ -61,6 +61,9 @@ public class InputHandler(FileManager fileManager)
             case InputMode.TrashMenu:
                 HandleTrashMenuInput(keyInfo);
                 break;
+            case InputMode.TrashVisual:
+                HandleTrashVisualModeInput(keyInfo);
+                break;
             default:
                 HandleInputModeKeyPress(keyInfo);
                 break;
@@ -631,6 +634,11 @@ public class InputHandler(FileManager fileManager)
             case ConsoleKey.Q:
                 fileManager.ActionHandler.CloseTrashMenu();
                 break;
+            case ConsoleKey.V:
+                _state.CurrentMode = InputMode.TrashVisual;
+                _state.VisuallySelectedTrashItems.Clear();
+                fileManager.ActionHandler.ToggleTrashVisualSelection();
+                break;
         }
     }
 
@@ -640,7 +648,7 @@ public class InputHandler(FileManager fileManager)
         {
             case ConsoleKey.Y: fileManager.ActionHandler.CommitPurgeTrashItem(); break;
             case ConsoleKey.N or ConsoleKey.Escape:
-                _state.PendingPurgeEntry = null;
+                _state.PendingPurgeEntries = [];
                 _state.CurrentMode = InputMode.TrashMenu;
                 fileManager.SetNeedsRedraw();
                 break;
@@ -655,6 +663,36 @@ public class InputHandler(FileManager fileManager)
             case ConsoleKey.N or ConsoleKey.Escape:
                 _state.CurrentMode = InputMode.TrashMenu;
                 fileManager.SetNeedsRedraw();
+                break;
+        }
+    }
+
+    private void HandleTrashVisualModeInput(ConsoleKeyInfo keyInfo)
+    {
+        switch (keyInfo.Key)
+        {
+            case ConsoleKey.Escape:
+            case ConsoleKey.V:
+                _state.CurrentMode = InputMode.TrashMenu;
+                _state.VisuallySelectedTrashItems.Clear();
+                fileManager.SetNeedsRedraw();
+                break;
+            case ConsoleKey.DownArrow:
+            case ConsoleKey.J:
+                fileManager.NavigationHandler.MoveTrashSelection(1);
+                break;
+            case ConsoleKey.UpArrow:
+            case ConsoleKey.K:
+                fileManager.NavigationHandler.MoveTrashSelection(-1);
+                break;
+            case ConsoleKey.Spacebar:
+                fileManager.ActionHandler.ToggleTrashVisualSelection();
+                break;
+            case ConsoleKey.Enter:
+                fileManager.ActionHandler.RestoreSelectedTrashItem();
+                break;
+            case ConsoleKey.D:
+                fileManager.ActionHandler.BeginPurgeTrashItem();
                 break;
         }
     }

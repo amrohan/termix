@@ -55,7 +55,12 @@ public class NavigationHandler(FileManager fileManager)
         }
         else
         {
-            FileSystemService.OpenFile(selectedItem.Path);
+            var response = FileSystemService.OpenFile(selectedItem.Path);
+            if (!response.Success)
+            {
+                _state.StatusMessage = response.Message;
+                fileManager.SetNeedsRedraw();
+            }
         }
     }
 
